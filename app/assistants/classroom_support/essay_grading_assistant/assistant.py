@@ -35,7 +35,15 @@ class EssayGradingAssistant:
     
     def compile(self):
         # Compile the chain here
-        pass
+        prompt = PromptTemplate(
+            template=self.prompt,
+            input_variables=["context", "rubrics", "chat_history"],
+            partial_variables={"format_instructions": self.parser.get_format_instructions()}
+        )
+
+        chain = prompt | self.model | self.parser
+
+        return chain
 
     def grade_essay(self, docs: Document):
         # Generate the grade and feedback for the essay
@@ -44,3 +52,22 @@ class EssayGradingAssistant:
 class EssayGradeOutput(BaseModel):
     grade: float=Field(description="The grade of the essay provided.")
     feedback: str=Field(description="The feedback for the essay provided.")
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "rubrics": {
+                    "Introduction": "The introduction should be clear and concise.",
+                    "Body": "The body should be well-structured and provide supporting evidence.",
+                    "Conclusion": "The conclusion should summarize the main points of the essay.",
+                },
+                "context": """
+                    In today's rapidly evolving world, technology plays an increasingly vital role in our daily lives. This essay explores the impact of digital transformation on society. The widespread adoption of smartphones and internet connectivity has fundamentally changed how we communicate, work, and learn.
+                    First, the digital revolution has transformed the workplace. Remote work capabilities have become essential, allowing businesses to operate globally. Cloud computing and collaborative tools enable teams to work efficiently across different time zones and locations. This shift has led to increased productivity and work-life balance for many professionals.
+                    Furthermore, education has been revolutionized through online learning platforms and digital resources. Students now have access to vast knowledge databases and interactive learning tools. Virtual classrooms have made education more accessible to people worldwide, breaking down geographical barriers and democratizing learning opportunities.
+                    In conclusion, digital transformation has reshaped our society in profound ways. The integration of technology in our daily routines has created new opportunities while presenting unique challenges. As we continue to adapt to these changes, it's crucial to harness technology's potential while maintaining human connection and social values.
+                    """,
+                "grade": "A" ,
+                "feedback": "The essay meets all the requirements and is well-written.",
+            }
+        }
+    }

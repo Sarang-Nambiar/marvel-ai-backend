@@ -1,6 +1,7 @@
 from app.services.logger import setup_logger
 from app.utils.document_loaders import get_docs
 from app.assistants.classroom_support.essay_grading_assistant.assistant import EssayGradingAssistant
+from app.api.error_utilities import InputValidationError
 
 logger = setup_logger()
 
@@ -13,13 +14,15 @@ def executor(
     
     try:    
         if not file_type or not file_url:
-            raise ("File URL and File Type are required")
+            raise InputValidationError("File URL and File Type are required")
+
+        if not rubrics:
+            raise InputValidationError("Rubrics are required")
 
         if verbose: logger.info(f"Generating docs from {file_type}")
 
         docs = get_docs(file_url, file_type, verbose=verbose)
 
-        # TODO: Create and return the grade with feedback
         output = EssayGradingAssistant(rubrics=rubrics, verbose=verbose).grade_essay(docs)
 
         logger.info(f"Essay Grading Assistant executed successfully")
