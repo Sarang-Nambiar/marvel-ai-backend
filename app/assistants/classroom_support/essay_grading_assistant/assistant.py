@@ -1,11 +1,15 @@
 from pydantic import BaseModel, Field
-from typing import List, Dict
+from typing import List
 import os
 from langchain_core.documents import Document
-from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
-from langchain_google_genai import GoogleGenerativeAI
 from app.services.logger import setup_logger
+from dotenv import load_dotenv, find_dotenv
+import google.generativeai as genai
+
+load_dotenv(find_dotenv())
+
+genai.configure(api_key=os.environ['GOOGLE_API_KEY'])
 
 logger = setup_logger()
 
@@ -20,34 +24,43 @@ def read_text_file(file_path):
         return file.read()
     
 class EssayGradingAssistant:
-    def __init__(self, rubrics, prompt=None, model=None, parser=None, verbose=False):
+    def __init__(self, rubrics, model=None, verbose=False):
         default_config = {
-            "model": GoogleGenerativeAI(model="gemini-1.5-flash"),
-            "parser": JsonOutputParser(pydantic_object=EssayGradeOutput),
-            "prompt": read_text_file("prompt/essay-generating-assistant-prompt.txt"),
+            "model": genai.GenerativeModel(model_name='gemini-1.5-flash', 
+                                           system_instruction=read_text_file("prompt/essay-grading-assistant-context.txt"))
         }
 
         self.rubrics = rubrics
-        self.prompt = prompt or default_config["prompt"]
         self.model = model or default_config["model"]   
-        self.parser = parser or default_config["parser"]
         self.verbose = verbose
+        self.parser = JsonOutputParser(pydantic_object=EssayGradeOutput)
+
+        # Initialize the chat session with Gemini
+        self.chat_session = self.model.start_chat()
     
-    def compile(self):
-        # Compile the chain here
-        prompt = PromptTemplate(
-            template=self.prompt,
-            input_variables=["context", "rubrics", "chat_history"],
-            partial_variables={"format_instructions": self.parser.get_format_instructions()}
-        )
+    def validate_output(self, output: dict) -> bool:
+        # TODO: Implement output validator if needed
+        pass 
 
-        chain = prompt | self.model | self.parser
-
-        return chain
-
-    def grade_essay(self, docs: Document):
+    def grade_essay(self, docs: List[Document]):
         # Generate the grade and feedback for the essay
-        pass
+        context = "\n".join([doc.page_content for doc in docs])
+        
+        response = self.chat_session.send_message(f"""
+            Here are the rubrics for grading the essay: \n
+            {self.rubrics} \n
+            Below is the essay to be graded: \n
+            {context} \n
+            Output the grades and feedback in the following format: \n
+            {self.parser.get_format_instructions()} \n
+            Based on the rubrics and the conversation history, provide personalized grades and feedback on the student essay. If you need more information, ask the educator for clarification.\n
+            """)
+        
+        output = self.parser.parse(response.text) 
+
+        # Validate the output here
+
+        return output
 
 class EssayGradeOutput(BaseModel):
     grade: float=Field(description="The grade of the essay provided.")
