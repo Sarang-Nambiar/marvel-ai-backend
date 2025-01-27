@@ -5,6 +5,8 @@ from app.api.error_utilities import InputValidationError
 
 logger = setup_logger()
 
+ALLOWED_FILE_TYPES = {"pdf", "docx", "txt"}
+
 def executor(
             rubrics: str,
             file_url: str,
@@ -15,6 +17,9 @@ def executor(
     try:    
         if not file_type or not file_url:
             raise InputValidationError("File URL and File Type are required")
+        
+        if file_type not in ALLOWED_FILE_TYPES:
+            raise InputValidationError(f"File type {file_type} is not supported. Supported file types are {ALLOWED_FILE_TYPES}")
 
         if not rubrics:
             raise InputValidationError("Rubrics are required")
@@ -23,7 +28,7 @@ def executor(
 
         docs = get_docs(file_url, file_type, verbose=verbose)
 
-        output = EssayGradingAssistant(rubrics=rubrics, verbose=verbose).grade_essay(docs)
+        output = EssayGradingAssistant(rubrics=rubrics, verbose=True).grade_essay(docs)
 
         logger.info(f"Essay Grading Assistant executed successfully")
 
